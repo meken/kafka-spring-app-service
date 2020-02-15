@@ -1,0 +1,83 @@
+trigger:
+  - master
+
+variables:
+  prefix: 'kafkaspringdemo'
+  resourceGroup: 'rg-kafka-spring-demo'
+  azureConnection: 'conn-rg-kafka-spring-demo'
+  location: 'West Europe'
+  # Agent VM image name
+  vmImageName: 'ubuntu-latest'
+
+stages:
+  - stage: Build
+    displayName: Build stage
+    jobs:
+      - job: ContainerPackageAndPublishArtifacts
+        displayName: Maven Package and Publish Artifacts
+        pool:
+          vmImage: $(vmImageName)
+
+        steps:
+          - task: AzureResourceGroupDeployment@2
+            displayName: 'Azure Deployment: Create Azure Container Registry'
+            inputs:
+              azureSubscription: $(azureConnection)
+              resourceGroupName: $(resourceGroup)
+              location: $(location)
+              csmFile: '$(System.DefaultWorkingDirectory)/**/container-registry-template.json'
+              overrideParameters: '-registryName "$(prefix)"'
+
+          - task: Maven@3
+            displayName: 'Maven $(mavenPOMFile)'
+            inputs:
+              mavenPomFile: 'app/pom.xml'
+
+          - task: Docker@1
+            displayName: 'Build image with jar'
+            inputs:
+              azureSubscriptionEndpoint: $(azureConnection)
+              azureContainerRegistry: $(prefix).azurecr.io
+              imageName: '$(prefix):$(Build.BuildId)'
+
+          - task: Docker@1
+            displayName: 'Push image to registry'
+            inputs:
+              azureSubscriptionEndpoint: $(azureConnection)
+              azureContainerRegistry: $(prefix).azurecr.io
+              command: 'Push an image'
+              imageName: '$(prefix):$(Build.BuildId)'
+
+          - task: CopyFiles@2
+            displayName: 'Copy ARM templates to artifact staging directory'
+            inputs:
+              SourceFolder: '$(System.DefaultWorkingDirectory)/infra'
+              Contents: '*.json'
+              TargetFolder: $(Build.ArtifactStagingDirectory)
+
+          - upload: $(Build.ArtifactStagingDirectory)
+            artifact: drop
+
+
+  - stage: Deploy
+    displayName: Deploy stage
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - deployment: ConfigureDeployLinuxWebApp
+        displayName: Deploy Linux Web App
+        pool:
+          vmImage: $(vmImageName)
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureResourceGroupDeployment@2
+                  displayName: 'Azure Deployment: Configure and Deploy Web App'
+                  inputs:
+                    azureSubscription: $(azureConnection)
+                    resourceGroupName: $(resourceGroup)
+                    location: $(location)
+                    csmFile: '$(Pipeline.Workspace)/**/container-webapp-template.json'
+                    overrideParameters: '-registryName "$(prefix)" -webAppName "$(prefix)" -imageName "$(prefix):$(Build.BuildId)" -keyVaultName "$(prefix)" -sbName "$(prefix)"'
+

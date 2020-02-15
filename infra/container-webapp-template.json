@@ -11,7 +11,7 @@
     "imageName": {
       "type": "string"
     },
-    "databaseServerName": {
+    "serviceBusName": {
       "type": "string"
     },
     "keyVaultName": {
@@ -26,24 +26,18 @@
     "registrySku": "Standard",
     "startupCommand": "",
     "appInsightsLocation": "[resourceGroup().location]",
-    "databaseName": "employees",
-    "databaseLocation": "[resourceGroup().location]",
-    "databaseSkuName": "GP_Gen5_2",
-    "databaseSkuTier": "GeneralPurpose",
-    "databaseSkuCapacity": "2",
-    "databaseSkuSizeGB": "5",
-    "databaseSkuFamily": "Gen5",
-    "mysqlVersion": "5.7",
-    "administratorLogin": "[concat('usr', uniqueString(resourceGroup().id, '9282c481-c52e-40cd-a374-5eb06a8cfb4b'))]",
-    "administratorLoginPassword": "[concat('P', uniqueString(resourceGroup().id, 'e48693a9-f29c-47c6-9ca0-00c4c6aa3d46'), 'x!')]",
     "appInsightsKeyName": "app-insights",
-    "databaseUrlKeyName": "database-url",
-    "databaseUserKeyName": "database-user",
-    "databasePasswordKeyName": "database-password",
     "dockerRegistryKeyName": "docker-registry",
     "dockerRegistryUserKeyName": "docker-registry-user",
     "dockerRegistryPasswordKeyName": "docker-registry-password",
-    "keyVaultLocation": "[resourceGroup().location]"
+    "keyVaultLocation": "[resourceGroup().location]",
+    "serviceBusLocation": "[resourceGroup().location]",
+    "serviceBusTier": "Standard",
+    "serviceBusCapacity": 2,
+    "eventHubName": "sample-topic",
+    "eventHubPartitionCount": 32,
+    "eventHubAuthName": "listen-and-send",
+    "eventHubConnectionKeyName": "event-hub-connection"
   },
   "resources": [
     {
@@ -66,18 +60,16 @@
             "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]",
             "[resourceId('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]",
             "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('appInsightsKeyName'))]",
-            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('databaseUrlKeyName'))]",
-            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('databaseUserKeyName'))]",
-            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('databasePasswordKeyName'))]"
+            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('eventHubConnectionKeyName'))]"
           ],
           "properties": {
             "DOCKER_REGISTRY_SERVER_URL": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('dockerRegistryKeyName'))).secretUriWithVersion, ')')]",
             "DOCKER_REGISTRY_SERVER_USERNAME": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('dockerRegistryUserKeyName'))).secretUriWithVersion, ')')]",
             "DOCKER_REGISTRY_SERVER_PASSWORD": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('dockerRegistryPasswordKeyName'))).secretUriWithVersion, ')')]",
             "APPINSIGHTS_INSTRUMENTATIONKEY": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('appInsightsKeyName'))).secretUriWithVersion, ')')]",
-            "SPRING_DATASOURCE_URL": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('databaseUrlKeyName'))).secretUriWithVersion, ')')]",
-            "SPRING_DATASOURCE_USERNAME": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('databaseUserKeyName'))).secretUriWithVersion, ')')]",
-            "SPRING_DATASOURCE_PASSWORD": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('databasePasswordKeyName'))).secretUriWithVersion, ')')]",
+            "KAFKA_CONNECTION_KEY": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('eventHubConnectionKeyName'))).secretUriWithVersion, ')')]",
+            "KAFKA_ENDPOINT": "[concat(parameters('serviceBusName'), '.servicebus.windows.net:9093')]",
+            "KAFKA_TOPIC": "[variables('eventHubName')]",
             "WEBSITES_ENABLE_APP_SERVICE_STORAGE": "false",
             "WEBSITES_PORT": "8080"
           }
@@ -95,7 +87,7 @@
         "hostingEnvironment": ""
       },
       "dependsOn": [
-        "[concat('Microsoft.Web/serverfarms/', variables('hostingPlanName'))]",
+        "[resourceId('Microsoft.Web/serverfarms/', variables('hostingPlanName'))]",
         "[resourceId('Microsoft.Insights/components/', parameters('webAppName'))]"
       ]
     },
@@ -108,7 +100,7 @@
       "apiVersion": "2017-10-01",
       "location": "[variables('registryLocation')]",
       "properties": {
-        "adminUserEnabled": "true"
+        "adminUserEnabled": true
       }
     },
     {
@@ -144,53 +136,47 @@
       }
     },
     {
-      "apiVersion": "2017-12-01",
-      "location": "[variables('databaseLocation')]",
-      "name": "[parameters('databaseServerName')]",
-      "type": "Microsoft.DBforMySQL/servers",
+      "type": "Microsoft.EventHub/namespaces",
+      "apiVersion": "2018-01-01-preview",
+      "name": "[parameters('serviceBusName')]",
+      "location": "[variables('serviceBusLocation')]",
       "sku": {
-        "name": "[variables('databaseSkuName')]",
-        "tier": "[variables('databaseSkuTier')]",
-        "capacity": "[variables('databaseSkuCapacity')]",
-        "family": "[variables('databaseSkuFamily')]"
+        "name": "[variables('serviceBusTier')]",
+        "tier": "[variables('serviceBusTier')]",
+        "capacity": "[variables('serviceBusCapacity')]"
       },
       "properties": {
-        "version": "[variables('mysqlVersion')]",
-        "administratorLogin": "[variables('administratorLogin')]",
-        "administratorLoginPassword": "[variables('administratorLoginPassword')]",
-        "storageProfile": {
-          "storageGB": "[variables('databaseSkuSizeGB')]",
-          "backupRetentionDays": "7",
-          "geoRedundantBackup": "Disabled"
-        },
-        "sslEnforcement": "Disabled"
+        "isAutoInflateEnabled": false,
+        "maximumThroughputUnits": 0,
+        "zoneRedundant": false
+      }
+    },
+    {
+      "type": "Microsoft.EventHub/namespaces/eventhubs",
+      "apiVersion": "2017-04-01",
+      "name": "[concat(parameters('serviceBusName'), '/', variables('eventHubName'))]",
+      "location": "[variables('serviceBusLocation')]",
+      "dependsOn": [
+          "[resourceId('Microsoft.EventHub/namespaces', parameters('serviceBusName'))]"
+      ],
+      "properties": {
+          "messageRetentionInDays": 1,
+          "partitionCount": "[variables('eventHubPartitionCount')]",
+          "status": "Active"
       },
       "resources": [
         {
-          "type": "firewallrules",
-          "apiVersion": "2017-12-01",
+          "type": "authorizationRules",
+          "apiVersion": "2017-04-01",
+          "name": "[variables('eventHubAuthName')]",
           "dependsOn": [
-            "[concat('Microsoft.DBforMySQL/servers/', parameters('databaseServerName'),'/databases/' , variables('databaseName'))]",
-            "[concat('Microsoft.DBforMySQL/servers/', parameters('databaseServerName'))]"
+            "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('serviceBusName'), variables('eventHubName'))]"
           ],
-          "location": "[variables('databaseLocation')]",
-          "name": "AllowAzureIPs",
           "properties": {
-            "startIpAddress": "0.0.0.0",
-            "endIpAddress": "0.0.0.0"
+            "rights": [
+              "Send", "Listen"
+            ]
           }
-        },
-        {
-          "name": "[variables('databaseName')]",
-          "type": "databases",
-          "apiVersion": "2017-12-01",
-          "properties": {
-            "charset": "utf8",
-            "collation": "utf8_general_ci"
-          },
-          "dependsOn": [
-            "[concat('Microsoft.DBforMySQL/servers/', parameters('databaseServerName'))]"
-          ]
         }
       ]
     },
@@ -234,35 +220,14 @@
         },
         {
           "type": "secrets",
-          "name": "[variables('databaseUrlKeyName')]",
+          "name": "[variables('eventHubConnectionKeyName')]",
           "apiVersion": "2018-02-14",
           "dependsOn": [
-            "[resourceId('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]"
+            "[resourceId('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]",
+            "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('serviceBusName'), variables('eventHubName'))]"
           ],
           "properties": {
-            "value": "[concat('jdbc:mysql://', parameters('databaseServerName'),'.mysql.database.azure.com:3306/', variables('databaseName'))]"
-          }
-        },
-        {
-          "type": "secrets",
-          "name": "[variables('databaseUserKeyName')]",
-          "apiVersion": "2018-02-14",
-          "dependsOn": [
-            "[resourceId('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]"
-          ],
-          "properties": {
-            "value": "[concat(variables('administratorLogin'), '@', parameters('databaseServerName'))]"
-          }
-        },
-        {
-          "type": "secrets",
-          "name": "[variables('databasePasswordKeyName')]",
-          "apiVersion": "2018-02-14",
-          "dependsOn": [
-            "[resourceId('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]"
-          ],
-          "properties": {
-            "value": "[variables('administratorLoginPassword')]"
+            "value": "[listkeys(resourceId('Microsoft.EventHub/namespaces/eventhubs/authorizationRules', parameters('serviceBusName'), variables('eventHubName'), variables('eventHubAuthName')), '2017-04-01').primaryConnectionString]"
           }
         },
         {
