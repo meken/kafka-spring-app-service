@@ -22,6 +22,8 @@ import com.example.kafka.message.Producer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.support.SendResult;
+import org.springframework.util.concurrent.ListenableFuture;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -38,14 +40,16 @@ public class SampleController {
 
 	@GetMapping("/ping")
 	public String ping() {
-	    logger.info("# Ping @" + Instant.now());
+	    logger.info("# Ping @{}", Instant.now());
 	    return "OK";
 	}
 
 	@PostMapping("/send")
 	public String send(@RequestBody String payload) {
-		logger.info("# Sending: " + payload);
-		producer.send(payload);
+		logger.info("# Sending: {}", payload);
+		ListenableFuture<SendResult<String, String>> future = producer.send(payload);
+		future.addCallback(result -> logger.info("# Successfully sent: {}", result),
+				result -> logger.info("# Failed sending: {}", result));
 		return "OK";
 	}
 }

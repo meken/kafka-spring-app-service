@@ -16,6 +16,6 @@ public class Consumer {
     public void consume(@Payload String message,
                         @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition) {
         long threadId = Thread.currentThread().getId();
-        logger.info(String.format("#### Received -> %d, %d -> %s", threadId, partition, message));
+        logger.info("#### Received -> {}, {} -> {}", threadId, partition, message);
     }
 }
