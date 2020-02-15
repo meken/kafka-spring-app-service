@@ -1,0 +1,304 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "webAppName": {
+      "type": "string"
+    },
+    "registryName": {
+      "type": "string"
+    },
+    "imageName": {
+      "type": "string"
+    },
+    "databaseServerName": {
+      "type": "string"
+    },
+    "keyVaultName": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "hostingPlanName": "[concat(parameters('webAppName'), '-plan')]",
+    "skuTier": "Premium",
+    "skuName": "P1V2",
+    "registryLocation": "[resourceGroup().location]",
+    "registrySku": "Standard",
+    "startupCommand": "",
+    "appInsightsLocation": "[resourceGroup().location]",
+    "databaseName": "employees",
+    "databaseLocation": "[resourceGroup().location]",
+    "databaseSkuName": "GP_Gen5_2",
+    "databaseSkuTier": "GeneralPurpose",
+    "databaseSkuCapacity": "2",
+    "databaseSkuSizeGB": "5",
+    "databaseSkuFamily": "Gen5",
+    "mysqlVersion": "5.7",
+    "administratorLogin": "[concat('usr', uniqueString(resourceGroup().id, '9282c481-c52e-40cd-a374-5eb06a8cfb4b'))]",
+    "administratorLoginPassword": "[concat('P', uniqueString(resourceGroup().id, 'e48693a9-f29c-47c6-9ca0-00c4c6aa3d46'), 'x!')]",
+    "appInsightsKeyName": "app-insights",
+    "databaseUrlKeyName": "database-url",
+    "databaseUserKeyName": "database-user",
+    "databasePasswordKeyName": "database-password",
+    "dockerRegistryKeyName": "docker-registry",
+    "dockerRegistryUserKeyName": "docker-registry-user",
+    "dockerRegistryPasswordKeyName": "docker-registry-password",
+    "keyVaultLocation": "[resourceGroup().location]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/sites",
+      "name": "[parameters('webAppName')]",
+      "apiVersion": "2016-03-01",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "[concat('hidden-related:', '/subscriptions/', subscription().subscriptionId,'/resourcegroups/', resourceGroup().name, '/providers/Microsoft.Web/serverfarms/', variables('hostingPlanName'))]": "empty"
+      },
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "resources": [
+        {
+          "type": "config",
+          "name": "appsettings",
+          "apiVersion": "2015-08-01",
+          "dependsOn": [
+            "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]",
+            "[resourceId('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]",
+            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('appInsightsKeyName'))]",
+            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('databaseUrlKeyName'))]",
+            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('databaseUserKeyName'))]",
+            "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('databasePasswordKeyName'))]"
+          ],
+          "properties": {
+            "DOCKER_REGISTRY_SERVER_URL": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('dockerRegistryKeyName'))).secretUriWithVersion, ')')]",
+            "DOCKER_REGISTRY_SERVER_USERNAME": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('dockerRegistryUserKeyName'))).secretUriWithVersion, ')')]",
+            "DOCKER_REGISTRY_SERVER_PASSWORD": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('dockerRegistryPasswordKeyName'))).secretUriWithVersion, ')')]",
+            "APPINSIGHTS_INSTRUMENTATIONKEY": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('appInsightsKeyName'))).secretUriWithVersion, ')')]",
+            "SPRING_DATASOURCE_URL": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('databaseUrlKeyName'))).secretUriWithVersion, ')')]",
+            "SPRING_DATASOURCE_USERNAME": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('databaseUserKeyName'))).secretUriWithVersion, ')')]",
+            "SPRING_DATASOURCE_PASSWORD": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), variables('databasePasswordKeyName'))).secretUriWithVersion, ')')]",
+            "WEBSITES_ENABLE_APP_SERVICE_STORAGE": "false",
+            "WEBSITES_PORT": "8080"
+          }
+        }
+      ],
+      "properties": {
+        "name": "[parameters('webAppName')]",
+        "siteConfig": {
+          "appCommandLine": "[variables('startupCommand')]",
+          "linuxFxVersion": "[concat('DOCKER|', reference(concat('Microsoft.ContainerRegistry/registries/', parameters('registryName'))).loginServer, '/', parameters('imageName'))]",
+          "httpLoggingEnabled": true,
+          "logsDirectorySizeLimit": 35
+        },
+        "serverFarmId": "[concat('/subscriptions/', subscription().subscriptionId,'/resourcegroups/', resourceGroup().name, '/providers/Microsoft.Web/serverfarms/', variables('hostingPlanName'))]",
+        "hostingEnvironment": ""
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Web/serverfarms/', variables('hostingPlanName'))]",
+        "[resourceId('Microsoft.Insights/components/', parameters('webAppName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.ContainerRegistry/registries",
+      "sku": {
+        "name": "[variables('registrySku')]"
+      },
+      "name": "[parameters('registryName')]",
+      "apiVersion": "2017-10-01",
+      "location": "[variables('registryLocation')]",
+      "properties": {
+        "adminUserEnabled": "true"
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "sku": {
+        "Tier": "[variables('skuTier')]",
+        "Name": "[variables('skuName')]"
+      },
+      "kind": "linux",
+      "name": "[variables('hostingPlanName')]",
+      "apiVersion": "2016-09-01",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "name": "[variables('hostingPlanName')]",
+        "workerSizeId": "0",
+        "reserved": true,
+        "numberOfWorkers": "1",
+        "httpsOnly": "true",
+        "hostingEnvironment": ""
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "name": "[parameters('webAppName')]",
+      "apiVersion": "2014-04-01",
+      "location": "[variables('appInsightsLocation')]",
+      "tags": {
+        "[concat('hidden-link:', resourceGroup().id, '/providers/Microsoft.Web/sites/', parameters('webAppName'))]": "Resource"
+      },
+      "properties": {
+        "applicationId": "[parameters('webAppName')]",
+        "Request_Source": "AzureTfsExtensionAzureProject"
+      }
+    },
+    {
+      "apiVersion": "2017-12-01",
+      "location": "[variables('databaseLocation')]",
+      "name": "[parameters('databaseServerName')]",
+      "type": "Microsoft.DBforMySQL/servers",
+      "sku": {
+        "name": "[variables('databaseSkuName')]",
+        "tier": "[variables('databaseSkuTier')]",
+        "capacity": "[variables('databaseSkuCapacity')]",
+        "family": "[variables('databaseSkuFamily')]"
+      },
+      "properties": {
+        "version": "[variables('mysqlVersion')]",
+        "administratorLogin": "[variables('administratorLogin')]",
+        "administratorLoginPassword": "[variables('administratorLoginPassword')]",
+        "storageProfile": {
+          "storageGB": "[variables('databaseSkuSizeGB')]",
+          "backupRetentionDays": "7",
+          "geoRedundantBackup": "Disabled"
+        },
+        "sslEnforcement": "Disabled"
+      },
+      "resources": [
+        {
+          "type": "firewallrules",
+          "apiVersion": "2017-12-01",
+          "dependsOn": [
+            "[concat('Microsoft.DBforMySQL/servers/', parameters('databaseServerName'),'/databases/' , variables('databaseName'))]",
+            "[concat('Microsoft.DBforMySQL/servers/', parameters('databaseServerName'))]"
+          ],
+          "location": "[variables('databaseLocation')]",
+          "name": "AllowAzureIPs",
+          "properties": {
+            "startIpAddress": "0.0.0.0",
+            "endIpAddress": "0.0.0.0"
+          }
+        },
+        {
+          "name": "[variables('databaseName')]",
+          "type": "databases",
+          "apiVersion": "2017-12-01",
+          "properties": {
+            "charset": "utf8",
+            "collation": "utf8_general_ci"
+          },
+          "dependsOn": [
+            "[concat('Microsoft.DBforMySQL/servers/', parameters('databaseServerName'))]"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "name": "[parameters('keyVaultName')]",
+      "apiVersion": "2015-06-01",
+      "location": "[variables('keyVaultLocation')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]"
+      ],
+      "properties": {
+        "sku": {
+          "family": "A",
+          "name": "Standard"
+        },
+        "tenantId": "[subscription().tenantId]",
+        "enabledForTemplateDeployment": true,
+        "accessPolicies": [
+          {
+            "tenantId": "[subscription().tenantId]",
+            "objectId": "[reference(concat('Microsoft.Web/sites/', parameters('webAppName'), '/providers/Microsoft.ManagedIdentity/Identities/default'), '2015-08-31-PREVIEW').principalId]",
+            "permissions": {
+              "secrets": [ "get" ]
+            }
+          }
+        ]
+      },
+      "resources": [
+        {
+          "type": "secrets",
+          "name": "[variables('appInsightsKeyName')]",
+          "apiVersion": "2018-02-14",
+          "dependsOn": [
+            "[resourceId('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]",
+            "[resourceId('Microsoft.Insights/components', parameters('webAppName'))]"
+          ],
+          "properties": {
+            "value": "[reference(resourceId('Microsoft.Insights/components/', parameters('webAppName')), '2015-05-01').InstrumentationKey]"
+          }
+        },
+        {
+          "type": "secrets",
+          "name": "[variables('databaseUrlKeyName')]",
+          "apiVersion": "2018-02-14",
+          "dependsOn": [
+            "[resourceId('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]"
+          ],
+          "properties": {
+            "value": "[concat('jdbc:mysql://', parameters('databaseServerName'),'.mysql.database.azure.com:3306/', variables('databaseName'))]"
+          }
+        },
+        {
+          "type": "secrets",
+          "name": "[variables('databaseUserKeyName')]",
+          "apiVersion": "2018-02-14",
+          "dependsOn": [
+            "[resourceId('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]"
+          ],
+          "properties": {
+            "value": "[concat(variables('administratorLogin'), '@', parameters('databaseServerName'))]"
+          }
+        },
+        {
+          "type": "secrets",
+          "name": "[variables('databasePasswordKeyName')]",
+          "apiVersion": "2018-02-14",
+          "dependsOn": [
+            "[resourceId('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]"
+          ],
+          "properties": {
+            "value": "[variables('administratorLoginPassword')]"
+          }
+        },
+        {
+          "type": "secrets",
+          "name": "[variables('dockerRegistryKeyName')]",
+          "apiVersion": "2018-02-14",
+          "dependsOn": [
+            "[resourceId('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]"
+          ],
+          "properties": {
+            "value": "[concat('https://', reference(concat('Microsoft.ContainerRegistry/registries/', parameters('registryName'))).loginServer)]"
+          }
+        },
+        {
+          "type": "secrets",
+          "name": "[variables('dockerRegistryUserKeyName')]",
+          "apiVersion": "2018-02-14",
+          "dependsOn": [
+            "[resourceId('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]"
+          ],
+          "properties": {
+            "value": "[listCredentials(concat('Microsoft.ContainerRegistry/registries/', parameters('registryName')), '2017-10-01').username]"
+          }
+        },
+        {
+          "type": "secrets",
+          "name": "[variables('dockerRegistryPasswordKeyName')]",
+          "apiVersion": "2018-02-14",
+          "dependsOn": [
+            "[resourceId('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]"
+          ],
+          "properties": {
+            "value": "[listCredentials(concat('Microsoft.ContainerRegistry/registries/', parameters('registryName')), '2017-10-01').passwords[0].value]"
+          }
+        }
+      ]
+    }
+  ]
+}
