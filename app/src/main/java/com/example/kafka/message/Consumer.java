@@ -1,7 +1,5 @@
 package com.example.kafka.message;
 
-import java.io.IOException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -12,13 +10,12 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class Consumer {
-
     private final Logger logger = LoggerFactory.getLogger(Consumer.class);
 
-    @KafkaListener(topics = "eh-kafka-spring-demo", groupId = "$Default")
+    @KafkaListener(topics = "${app.topic.name}")
     public void consume(@Payload String message,
                         @Header(KafkaHeaders.RECEIVED_PARTITION_ID) int partition) {
-        long id = Thread.currentThread().getId();
-        logger.info(String.format("#### -> %d, %d -> %s", id, partition, message));
+        long threadId = Thread.currentThread().getId();
+        logger.info(String.format("#### Received -> %d, %d -> %s", threadId, partition, message));
     }
 }
