@@ -25,6 +25,15 @@ stages:
               location: $(location)
               csmFile: '$(System.DefaultWorkingDirectory)/**/container-registry-template.json'
               overrideParameters: '-baseName "$(baseName)"'
+              deploymentOutputs: registryNameOutput
+
+          - task: PowerShell@2
+            inputs:
+              targetType: 'inline'
+              script: |
+                $var=ConvertFrom-Json '$(registryNameOutput)'
+                $value=$var.properties.outputs.registryName.value
+                Write-Host "##vso[task.setvariable variable=registryName;]$value"
 
           - task: Maven@3
             displayName: 'Maven $(mavenPOMFile)'
@@ -35,14 +44,14 @@ stages:
             displayName: 'Build image with jar'
             inputs:
               azureSubscriptionEndpoint: $(azureConnection)
-              azureContainerRegistry: $(baseName).azurecr.io
+              azureContainerRegistry: $(registryName).azurecr.io
               imageName: '$(imageName):$(Build.BuildId)'
 
           - task: Docker@1
             displayName: 'Push image to registry'
             inputs:
               azureSubscriptionEndpoint: $(azureConnection)
-              azureContainerRegistry: $(prefix).azurecr.io
+              azureContainerRegistry: $(registryName).azurecr.io
               command: 'Push an image'
               imageName: '$(imageName):$(Build.BuildId)'
 
