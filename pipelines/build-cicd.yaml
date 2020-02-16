@@ -11,7 +11,7 @@ stages:
   - stage: Build
     displayName: Build stage
     jobs:
-      - job: ContainerPackageAndPublishArtifacts
+      - job: PackageContainerAndPublishArtifacts
         displayName: Maven Package and Publish Artifacts
         pool:
           vmImage: $(vmImageName)
@@ -27,33 +27,23 @@ stages:
               overrideParameters: '-baseName "$(baseName)"'
               deploymentOutputs: registryNameOutput
 
-          - task: PowerShell@2
-            inputs:
-              targetType: 'inline'
-              script: |
-                $var=ConvertFrom-Json '$(registryNameOutput)'
-                $value=$var.properties.outputs.registryName.value
-                Write-Host "##vso[task.setvariable variable=registryName;]$value"
+          - bash: |
+              VAR=`echo $REGISTRYNAMEOUTPUT | jq -r .registryName.value`
+              echo "##vso[task.setvariable variable=registryName]$VAR"
 
           - task: Maven@3
             displayName: 'Maven $(mavenPOMFile)'
             inputs:
               mavenPomFile: 'app/pom.xml'
 
-          - task: Docker@1
-            displayName: 'Build image with jar'
+          - task: AzureCLI@2
+            displayName: Build the image on the registry 
             inputs:
-              azureSubscriptionEndpoint: $(azureConnection)
-              azureContainerRegistry: $(registryName).azurecr.io
-              imageName: '$(imageName):$(Build.BuildId)'
-
-          - task: Docker@1
-            displayName: 'Push image to registry'
-            inputs:
-              azureSubscriptionEndpoint: $(azureConnection)
-              azureContainerRegistry: $(registryName).azurecr.io
-              command: 'Push an image'
-              imageName: '$(imageName):$(Build.BuildId)'
+              azureSubscription: $(azureConnection)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                  az acr build -r $REGISTRYNAME --image $(imageName):$(Build.BuildId) app
 
           - task: CopyFiles@2
             displayName: 'Copy ARM templates to artifact staging directory'
