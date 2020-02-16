@@ -1,8 +1,6 @@
-trigger:
-  - master
-
 variables:
-  prefix: 'kafkaspringdemo'
+  baseName: 'kafka'
+  imageName: 'kafka-demo'
   resourceGroup: 'rg-kafka-spring-demo'
   azureConnection: 'conn-rg-kafka-spring-demo'
   location: 'West Europe'
@@ -26,7 +24,7 @@ stages:
               resourceGroupName: $(resourceGroup)
               location: $(location)
               csmFile: '$(System.DefaultWorkingDirectory)/**/container-registry-template.json'
-              overrideParameters: '-registryName "$(prefix)"'
+              overrideParameters: '-baseName "$(baseName)"'
 
           - task: Maven@3
             displayName: 'Maven $(mavenPOMFile)'
@@ -37,8 +35,8 @@ stages:
             displayName: 'Build image with jar'
             inputs:
               azureSubscriptionEndpoint: $(azureConnection)
-              azureContainerRegistry: $(prefix).azurecr.io
-              imageName: '$(prefix):$(Build.BuildId)'
+              azureContainerRegistry: $(baseName).azurecr.io
+              imageName: '$(imageName):$(Build.BuildId)'
 
           - task: Docker@1
             displayName: 'Push image to registry'
@@ -46,7 +44,7 @@ stages:
               azureSubscriptionEndpoint: $(azureConnection)
               azureContainerRegistry: $(prefix).azurecr.io
               command: 'Push an image'
-              imageName: '$(prefix):$(Build.BuildId)'
+              imageName: '$(imageName):$(Build.BuildId)'
 
           - task: CopyFiles@2
             displayName: 'Copy ARM templates to artifact staging directory'
@@ -79,5 +77,5 @@ stages:
                     resourceGroupName: $(resourceGroup)
                     location: $(location)
                     csmFile: '$(Pipeline.Workspace)/**/container-webapp-template.json'
-                    overrideParameters: '-registryName "$(prefix)" -webAppName "$(prefix)" -imageName "$(prefix):$(Build.BuildId)" -keyVaultName "$(prefix)" -sbName "$(prefix)"'
+                    overrideParameters: '-baseName "$(baseName)" -imageName "$(imageName):$(Build.BuildId)"'
 

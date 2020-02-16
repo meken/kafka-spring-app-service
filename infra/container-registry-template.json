@@ -2,26 +2,36 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "registryName": {
-      "type": "string"
+    "baseName": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 6
     }
   },
   "variables": {
+    "suffix": "[toLower(substring(concat(parameters('baseName'), uniqueString(resourceGroup().id)), 0, 8))]",
+    "registryName": "[concat('acr', variables('suffix'))]",
     "registrySku": "Standard",
     "registryLocation": "[resourceGroup().location]"
   },
   "resources": [
     {
       "type": "Microsoft.ContainerRegistry/registries",
+      "apiVersion": "2019-05-01",
+      "name": "[variables('registryName')]",
+      "location": "[variables('registryLocation')]",
       "sku": {
         "name": "[variables('registrySku')]"
       },
-      "name": "[parameters('registryName')]",
-      "apiVersion": "2017-10-01",
-      "location": "[variables('registryLocation')]",
       "properties": {
-        "adminUserEnabled": "true"
+        "adminUserEnabled": true
       }
     }
-  ]
+  ],
+  "outputs": {
+    "registryName": {
+      "type": "string",
+      "value": "[variables('registryName')]"
+    }
+  }
 }
