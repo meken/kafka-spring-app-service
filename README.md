@@ -35,7 +35,7 @@ you have docker installed locally you can build the image and push it to a conta
 example, we'll use the [build tasks feature of Azure Container Registry](https://docs.microsoft.com/en-us/azure/container-registry/container-registry-tutorial-quick-task). In order to use that feature, we'll first
 need to create the registry in the first place.
 ```bash
-ACR=`az group deployment create -g rg-kafka-spring-demo \
+ACR=`az group deployment create -g $RG \
     --template-file ../infra/container-registry-template.json \
     --parameters baseName="$BASE_NAME" \
     --query properties.outputs.registryName.value \
@@ -56,7 +56,7 @@ store some secrets, an Event Hub and an Application Insights instance (altough t
 that feature in anger). The web app will have a managed identity so that it can retrieve secrets from the
 Key Vault. And the newly created image will be deployed on the web app.
 ```bash
-HOST_NAME=`az group deployment create -g rg-kafka-spring-demo \
+HOST_NAME=`az group deployment create -g $RG \
     --template-file ../infra/container-webapp-template.json \
     --parameters baseName="$BASE_NAME" imageName="$IMAGE" \
     --query properties.outputs.webAppHostName.value \
