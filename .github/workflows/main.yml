@@ -42,12 +42,19 @@ jobs:
         azcliversion: latest
         inlineScript: |
           az acr build -r ${{ steps.container_registry_setup.outputs.registry_name }} --image ${{ env.IMAGE }} app
+    - name: Upload ARM Templates for Deployment
+      uses: actions/upload-artifact@v1
+      with:
+        name: templates
+        path: infra/*.json
   deploy:
     needs: build
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+    - name: Download ARM Templates
+      uses: actions/download-artifact@v1
+      with:
+        name: templates 
     - name: Azure Login
       uses: Azure/login@v1
       with:
@@ -58,7 +65,7 @@ jobs:
         azcliversion: latest
         inlineScript: |
           az group deployment create -g ${{ env.RESOURCE_GROUP }} \
-                    --template-file infra/container-webapp-template.json \
+                    --template-file templates/container-webapp-template.json \
                     --parameters baseName="${{ env.BASE_NAME }}" imageName="${{ env.IMAGE }}" \
                     --query properties.outputs.webAppHostName.value \
                     -o tsv
