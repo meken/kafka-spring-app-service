@@ -43,6 +43,7 @@ jobs:
         inlineScript: |
           az acr build -r ${{ steps.container_registry_setup.outputs.registry_name }} --image ${{ env.IMAGE }} app
   deploy:
+    needs: build
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
