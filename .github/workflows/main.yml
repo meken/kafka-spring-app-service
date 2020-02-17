@@ -46,7 +46,7 @@ jobs:
       uses: actions/upload-artifact@v1
       with:
         name: templates
-        path: infra/*.json
+        path: infra/container-webapp-template.json
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -54,7 +54,7 @@ jobs:
     - name: Download ARM Templates
       uses: actions/download-artifact@v1
       with:
-        name: templates 
+        name: templates
     - name: Azure Login
       uses: Azure/login@v1
       with:
