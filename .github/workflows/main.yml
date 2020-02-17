@@ -1,0 +1,64 @@
+name: CICD
+
+on: [push]
+
+env:
+  JAVA_VERSION: '1.8'
+  RESOURCE_GROUP: 'rg-kafka-spring-demo'
+  BASE_NAME: 'kafka'
+  IMAGE: 'kafka-demo:${{ github.run_number }}' 
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Azure Login
+      uses: Azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Set up Azure Container Registry 
+      uses: azure/CLI@v1
+      id: container_registry_setup
+      with:
+        azcliversion: latest
+        inlineScript: |
+          ACR=`az group deployment create -g ${{ env.RESOURCE_GROUP }} \
+                    --template-file infra/container-registry-template.json \
+                    --parameters baseName="${{ env.BASE_NAME }}" \
+                    --query properties.outputs.registryName.value \
+                    -o tsv`
+          echo "::set-output name=registry_name::$ACR"
+    - name: Set up JDK 1.8
+      uses: actions/setup-java@v1
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+    - name: Build with Maven
+      run: mvn package --file app/pom.xml
+    - name: Build Image with Azure Container Registry
+      uses: azure/CLI@v1
+      with:
+        azcliversion: latest
+        inlineScript: |
+          az acr build -r ${{ steps.container_registry_setup.outputs.registry_name }} --image ${{ env.IMAGE }} app
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Azure Login
+      uses: Azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Set up Azure Web App, Key Vault, Event Hub etc. 
+      uses: azure/CLI@v1
+      with:
+        azcliversion: latest
+        inlineScript: |
+          az group deployment create -g ${{ env.RESOURCE_GROUP }} \
+                    --template-file infra/container-webapp-template.json \
+                    --parameters baseName="${{ env.BASE_NAME }}" imageName="${{ env.IMAGE }}" \
+                    --query properties.outputs.webAppHostName.value \
+                    -o tsv

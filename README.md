@@ -5,7 +5,9 @@ This is a sample project that shows how to use [Kafka APIs for Azure Event Hubs]
 This repository consists of 3 modules
 - Declarative infra setup for the required Azure resources
 - Code for a simple consumer & producer setup
-- Build pipeline (for [Azure DevOps](https://azure.microsoft.com/en-us/services/devops/))
+- Build pipelines
+  -  Using [Azure DevOps](https://azure.microsoft.com/en-us/services/devops/) ![Build Status](https://dev.azure.com/mueken/kafka-spring-demo/_apis/build/status/kafka-spring-demo?branchName=master)
+  -  And, [Github Actions](https://github.com/features/actions) ![CICD](https://github.com/meken/kafka-spring-app-service/workflows/CICD/badge.svg)
 
 ### Setting it up
 Pre-requisites
