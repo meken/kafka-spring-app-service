@@ -1,6 +1,8 @@
 name: CICD
 
-on: [push]
+on: 
+  push:
+    paths-ignore: '**.md'
 
 env:
   JAVA_VERSION: '1.8'
@@ -15,7 +17,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
     - name: Azure Login
-      uses: Azure/login@v1
+      uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
     - name: Set up Azure Container Registry 
@@ -46,7 +48,7 @@ jobs:
       uses: actions/upload-artifact@v1
       with:
         name: templates
-        path: infra/container-webapp-template.json
+        path: infra/container-webapp-template.json  # no wildcard support yet, waiting for @v2
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -56,7 +58,7 @@ jobs:
       with:
         name: templates
     - name: Azure Login
-      uses: Azure/login@v1
+      uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
     - name: Set up Azure Web App, Key Vault, Event Hub etc. 
