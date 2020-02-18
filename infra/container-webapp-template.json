@@ -195,7 +195,7 @@
         "accessPolicies": [
           {
             "tenantId": "[subscription().tenantId]",
-            "objectId": "[reference(concat('Microsoft.Web/sites/', variables('webAppName'), '/providers/Microsoft.ManagedIdentity/Identities/default'), '2015-08-31-PREVIEW').principalId]",
+            "objectId": "[reference(resourceId('Microsoft.Web/sites/', variables('webAppName')), '2018-02-01', 'Full').identity.principalId]",
             "permissions": {
               "secrets": [ "get" ]
             }
