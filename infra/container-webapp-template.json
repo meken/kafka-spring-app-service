@@ -53,7 +53,6 @@
           "name": "appsettings",
           "apiVersion": "2018-11-01",
           "dependsOn": [
-            "[resourceId('Microsoft.Web/sites', variables('webAppName'))]",
             "[resourceId('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]",
             "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), variables('appInsightsKeyName'))]",
             "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), variables('eventHubConnectionKeyName'))]"
