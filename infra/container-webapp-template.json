@@ -35,8 +35,7 @@
     "serviceBusCapacity": 2,
     "eventHubName": "eh-sample-topic",
     "eventHubPartitionCount": 32,
-    "eventHubAuthName": "listen-and-send",
-    "eventHubConnectionKeyName": "event-hub-connection"
+    "azureEventHubsDataOwner": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'f526a384-b230-433a-b45c-95f59c4a2dec')]"
   },
   "resources": [
     {
@@ -55,15 +54,13 @@
           "dependsOn": [
             "[resourceId('Microsoft.Web/sites', variables('webAppName'))]",
             "[resourceId('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]",
-            "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), variables('appInsightsKeyName'))]",
-            "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), variables('eventHubConnectionKeyName'))]"
+            "[resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), variables('appInsightsKeyName'))]"
           ],
           "properties": {
             "DOCKER_REGISTRY_SERVER_URL": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), variables('dockerRegistryKeyName'))).secretUriWithVersion, ')')]",
             "DOCKER_REGISTRY_SERVER_USERNAME": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), variables('dockerRegistryUserKeyName'))).secretUriWithVersion, ')')]",
             "DOCKER_REGISTRY_SERVER_PASSWORD": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), variables('dockerRegistryPasswordKeyName'))).secretUriWithVersion, ')')]",
             "APPINSIGHTS_INSTRUMENTATIONKEY": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), variables('appInsightsKeyName'))).secretUriWithVersion, ')')]",
-            "KAFKA_CONNECTION_KEY": "[concat('@Microsoft.KeyVault(SecretUri=', reference(resourceId('Microsoft.KeyVault/vaults/secrets', variables('keyVaultName'), variables('eventHubConnectionKeyName'))).secretUriWithVersion, ')')]",
             "KAFKA_ENDPOINT": "[concat(variables('serviceBusName'), '.servicebus.windows.net:9093')]",
             "KAFKA_TOPIC": "[variables('eventHubName')]",
             "WEBSITES_ENABLE_APP_SERVICE_STORAGE": "false",
@@ -160,22 +157,21 @@
           "messageRetentionInDays": 1,
           "partitionCount": "[variables('eventHubPartitionCount')]",
           "status": "Active"
-      },
-      "resources": [
-        {
-          "type": "authorizationRules",
-          "apiVersion": "2017-04-01",
-          "name": "[variables('eventHubAuthName')]",
-          "dependsOn": [
-            "[resourceId('Microsoft.EventHub/namespaces/eventhubs', variables('serviceBusName'), variables('eventHubName'))]"
-          ],
-          "properties": {
-            "rights": [
-              "Send", "Listen"
-            ]
-          }
-        }
-      ]
+      }
+    },
+    {
+      "type": "Microsoft.EventHub/namespaces/providers/roleAssignments",
+      "apiVersion": "2018-09-01-preview",
+      "name": "[concat(variables('serviceBusName'), '/Microsoft.Authorization/', guid(resourceGroup().id))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('webAppName'))]",
+        "[resourceId('Microsoft.EventHub/namespaces/eventhubs', variables('serviceBusName'), variables('eventHubName'))]"
+      ],
+      "properties": {
+          "roleDefinitionId": "[variables('azureEventHubsDataOwner')]",
+          "principalId": "[reference(resourceId('Microsoft.Web/sites/', variables('webAppName')), '2018-02-01', 'Full').identity.principalId]",
+          "principalType": "ServicePrincipal"
+      }
     },
     {
       "type": "Microsoft.KeyVault/vaults",
@@ -213,18 +209,6 @@
           ],
           "properties": {
             "value": "[reference(resourceId('Microsoft.Insights/components/', variables('appInsightsName')), '2015-05-01').InstrumentationKey]"
-          }
-        },
-        {
-          "type": "secrets",
-          "name": "[variables('eventHubConnectionKeyName')]",
-          "apiVersion": "2015-06-01",
-          "dependsOn": [
-            "[resourceId('Microsoft.KeyVault/vaults/', variables('keyVaultName'))]",
-            "[resourceId('Microsoft.EventHub/namespaces/eventhubs', variables('serviceBusName'), variables('eventHubName'))]"
-          ],
-          "properties": {
-            "value": "[listkeys(resourceId('Microsoft.EventHub/namespaces/eventhubs/authorizationRules', variables('serviceBusName'), variables('eventHubName'), variables('eventHubAuthName')), '2017-04-01').primaryConnectionString]"
           }
         },
         {

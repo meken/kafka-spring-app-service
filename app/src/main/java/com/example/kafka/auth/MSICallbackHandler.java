@@ -29,12 +29,12 @@ public class MSICallbackHandler implements AuthenticateCallbackHandler {
     }
 
     @Override
-    public void configure(Map<String, ?> map, String s, List<AppConfigurationEntry> list) {
-        String server = ((List<String>) map.get("bootstrap.servers")).get(0);
+    public void configure(Map<String, ?> configs, String sasl, List<AppConfigurationEntry> jaasEntries) {
+        // non-managed bean, so instead of injecting the property values, we're using the config options
+        String server = ((List<String>) configs.get("bootstrap.servers")).get(0);
         int idx = server.indexOf(":");
         String hostName = idx < 0 ? server : server.substring(0, idx);
         this.resource = String.format("https://%s", hostName);
-//        this.resource = "https://eventhubs.azure.net/";
     }
 
     @Override
