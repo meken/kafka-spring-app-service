@@ -1,5 +1,8 @@
 ## Kafka endpoints for EventHub and Spring Boot on App Service
 
+> Note that this branch uses SharedAccessKeys for Event Hub authentication, please see the 
+> [oauth-msi branch](https://github.com/meken/kafka-spring-app-service/tree/oauth-msi) for managed identities with OAuth.
+
 This is a sample project that shows how to use [Kafka APIs for Azure Event Hubs](https://docs.microsoft.com/en-us/azure/event-hubs/event-hubs-for-kafka-ecosystem-overview) through a Spring Boot app that runs on Azure App Service (Linux flavour with containers).
 
 This repository consists of 3 modules
