@@ -77,7 +77,8 @@
           "appCommandLine": "[variables('startupCommand')]",
           "linuxFxVersion": "[concat('DOCKER|', reference(concat('Microsoft.ContainerRegistry/registries/', variables('registryName'))).loginServer, '/', parameters('imageName'))]",
           "httpLoggingEnabled": true,
-          "logsDirectorySizeLimit": 35
+          "logsDirectorySizeLimit": 35,
+          "alwaysOn": true
         },
         "serverFarmId": "[concat('/subscriptions/', subscription().subscriptionId,'/resourcegroups/', resourceGroup().name, '/providers/Microsoft.Web/serverfarms/', variables('hostingPlanName'))]",
         "hostingEnvironment": ""
